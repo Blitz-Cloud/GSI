@@ -1,8 +1,8 @@
-const TwitterApi = require("twitter-api-v2").default;
-require("dotenv").config();
-const TwitterClient = new TwitterApi({
-  clientId: process.env["TWITTER_CLIENT_ID"],
-  clientSecret: process.env["TWITTER_CLIENT_SECRET"],
-});
-
-const callback = "https://hp.blitzcloud.ml/wh/callback";
+const blogCheck = function (prop) {
+  const propClone = prop;
+  prop = prop.toLowerCase();
+  if (prop.search("blog_post") !== -1) {
+    const title = propClone.slice(propClone.indexOf(":") + 1);
+    return title;
+  }
+};

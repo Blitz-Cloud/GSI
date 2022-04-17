@@ -1,0 +1,4 @@
+Blitz made a new post on his blog.
+Title:[title from commit massage]
+Check it out here :
+[link to blog(idk how i am gonna solve this issue)]

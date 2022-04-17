@@ -4,7 +4,9 @@ const app = express();
 const morgan = require("morgan");
 const mongoose = require("mongoose");
 const User = require("./models/models");
-const hmac = require("./test/test");
+const { hmac, blogCheck } = require("./utils/utils");
+const { cookie } = require("express/lib/response");
+
 const port = process.env.PORT || 8080;
 const db = "twitt-git";
 
@@ -36,7 +38,6 @@ mongoose.connect(`mongodb://localhost:27017/${db}`).then(() => {
 const checkSource = (req, res, next) => {
   const payload = req;
   const header = req.headers;
-  console.log();
   const signature =
     "sha256=" +
     hmac(process.env["GITHUB_SECRET"], `${JSON.stringify(payload.body)}`);
@@ -52,11 +53,28 @@ const checkSource = (req, res, next) => {
 };
 
 app.get("/", (req, res) => {
-  console.log("Main page hit");
   res.send("<h1>Hello World</h1>");
 });
-app.post("/wh", checkSource, (req, res) => {
-  res.send("Post route triggered");
+
+app.post("/wh", checkSource, async (req, res) => {
+  const commit = req.body["head_commit"]["message"];
+  const commitProp = blogCheck(commit);
+  if (commitProp.isBlog) {
+    const { refreshToken } = await User.findOne({});
+    const {
+      client: twitterUser,
+      accessToken,
+      refreshToken: newRefreshToken,
+    } = await TwitterClient.refreshOAuth2Token(refreshToken);
+    await User.findOneAndUpdate({
+      accessToken: accessToken,
+      refreshToken: newRefreshToken,
+    });
+    const { data } = await twitterUser.v2.tweet(commitProp.title);
+    return res.send(data);
+  }
+
+  res.send("NO TWEET FOR NOW");
 });
 
 app.get("/wh/auth", async (req, res) => {
@@ -77,13 +95,12 @@ app.get("/wh/auth", async (req, res) => {
 
 app.get("/wh/callback", async (req, res) => {
   const { state, code } = req.query;
-  console.log(req.query);
   const { state: storedState, codeVerifier } = await User.findOne({});
   if (state != storedState) {
     return res.status(401).send("Get aut");
   }
   const {
-    client: twitterClient,
+    client: twitterUser,
     accessToken,
     refreshToken,
   } = await TwitterClient.loginWithOAuth2({
@@ -96,5 +113,22 @@ app.get("/wh/callback", async (req, res) => {
     accessToken: accessToken,
     refreshToken: refreshToken,
   });
+
   res.redirect("/");
 });
+
+// app.get("/wh/me", async (req, res) => {
+//   const { refreshToken } = await User.findOne({});
+//   const {
+//     client: twitterUser,
+//     accessToken,
+//     refreshToken: newRefreshToken,
+//   } = await TwitterClient.refreshOAuth2Token(refreshToken);
+//   await User.findOneAndUpdate({
+//     accessToken: accessToken,
+//     refreshToken: newRefreshToken,
+//   });
+//   const data = await twitterUser.v2.me();
+
+//   res.send(data);
+// });
